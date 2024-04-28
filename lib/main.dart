@@ -1,27 +1,97 @@
-// Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
-import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
+import 'auth/firebase_auth/firebase_user_provider.dart';
+import 'auth/firebase_auth/auth_util.dart';
 
-// Project imports:
-import 'package:analog_clock/src/routes/app_pages.dart';
-import 'package:analog_clock/src/shared/logger/logger_utils.dart';
-import 'package:analog_clock/src/theme/theme_service.dart';
-import 'package:analog_clock/src/theme/themes.dart';
+import '/backend/supabase/supabase.dart';
+import 'backend/firebase/firebase_config.dart';
+import 'flutter_flow/flutter_flow_theme.dart';
+import 'flutter_flow/flutter_flow_util.dart';
+import 'flutter_flow/nav/nav.dart';
 
 void main() async {
-  await GetStorage.init();
-  runApp(
-    GetMaterialApp(
-      debugShowCheckedModeBanner: false,
-      logWriterCallback: Logger.write,
-      initialRoute: AppPages.rootRoute,
-      getPages: AppPages.routes,
-      theme: Themes().lightTheme,
-      darkTheme: Themes().darkTheme,
-      themeMode: ThemeService().getThemeMode(),
-    ),
-  );
+  WidgetsFlutterBinding.ensureInitialized();
+  GoRouter.optionURLReflectsImperativeAPIs = true;
+  usePathUrlStrategy();
+  await initFirebase();
+
+  await SupaFlow.initialize();
+
+  await FlutterFlowTheme.initialize();
+
+  runApp(const MyApp());
+}
+
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  // This widget is the root of your application.
+  @override
+  State<MyApp> createState() => _MyAppState();
+
+  static _MyAppState of(BuildContext context) =>
+      context.findAncestorStateOfType<_MyAppState>()!;
+}
+
+class _MyAppState extends State<MyApp> {
+  ThemeMode _themeMode = FlutterFlowTheme.themeMode;
+
+  late Stream<BaseAuthUser> userStream;
+
+  late AppStateNotifier _appStateNotifier;
+  late GoRouter _router;
+
+  final authUserSub = authenticatedUserStream.listen((_) {});
+
+  @override
+  void initState() {
+    super.initState();
+
+    _appStateNotifier = AppStateNotifier.instance;
+    _router = createRouter(_appStateNotifier);
+    userStream = profileTemplateFirebaseUserStream()
+      ..listen((user) => _appStateNotifier.update(user));
+    jwtTokenStream.listen((_) {});
+    Future.delayed(
+      const Duration(milliseconds: 1000),
+      () => _appStateNotifier.stopShowingSplashImage(),
+    );
+  }
+
+  @override
+  void dispose() {
+    authUserSub.cancel();
+
+    super.dispose();
+  }
+
+  void setThemeMode(ThemeMode mode) => setState(() {
+        _themeMode = mode;
+        FlutterFlowTheme.saveThemeMode(mode);
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      title: 'profile template',
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('en', '')],
+      theme: ThemeData(
+        brightness: Brightness.light,
+        useMaterial3: false,
+      ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        useMaterial3: false,
+      ),
+      themeMode: _themeMode,
+      routerConfig: _router,
+    );
+  }
 }
